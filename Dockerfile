@@ -3,7 +3,7 @@
 FROM python:3.11.12-slim@sha256:d8058726dd9c9d0903362a26569ec988d3f6a2b8e3a2468f3074d6c6e7a2b9d1 AS builder
 
 # Pinning explicit Astral UV tool digest
-COPY --from=ghcr.io/astral-sh/uv:0.6.0@sha256:5db988c5efb47b4df4477c77efd5bb1339adcd77bde2130e5cf7eef9b49b387e /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
