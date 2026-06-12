@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omabank-postgres
+    environment:
+      POSTGRES_USER: oma_admin
+      POSTGRES_PASSWORD: local_secure_password_123
+      POSTGRES_DB: omabank_ledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1gb
+
+  redis:
+    image: redis:7-alpine
+    container_name: omabank-redis
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 512mb
+
+volumes:
+  pgdata:

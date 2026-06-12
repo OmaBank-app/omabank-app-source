@@ -1,0 +1,47 @@
+repos:
+  # 1. BASE GIT & CODE HYGIENE
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500'] # Prevents accidentally committing huge DB dumps or logs
+      - id: check-merge-conflict
+      - id: detect-private-key  # Fails if it spots a raw RSA/EC private key
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
+        name: "GIT | Block direct push to main"
+
+  # 2. RUST-POWERED PYTHON LINTING & FORMATTING
+  # Replaces Black, Flake8, and Isort with a single, lightning-fast Rust binary
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.8
+    hooks:
+      - id: ruff
+        name: "RUFF | Lint & Autofix"
+        args: [ --fix ]
+      - id: ruff-format
+        name: "RUFF | Format Code"
+
+  # 3. SECRETS SCANNING (PCI-DSS)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks-system
+        name: "SEC | GitLeaks Secret Scanner"
+
+  # 4. SHIFT-LEFT VULNERABILITY SCANNING
+  # Because Trivy is installed globally in Phase 1, a local hook to scan the
+  # application source files and Dockerfile will be done before allowing the commit.
+  - repo: local
+    hooks:
+      - id: trivy-fs
+        name: "SEC | Trivy Filesystem Scan"
+        entry: trivy fs . --scanners vuln,config --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore
+        language: system
+        pass_filenames: false
+        always_run: true
