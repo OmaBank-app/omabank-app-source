@@ -35,7 +35,7 @@ stages:
 
     - script: |
         echo "Installing Trivy..."
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.50.1
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin v0.50.1
 
         echo "Running High/Critical Vulnerability Scan..."
         trivy fs . --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore
