@@ -1,6 +1,6 @@
 # STAGE 1: Builder
 # Pinning explicit Python version and SHA-256 digest
-FROM python:3.11.12-slim@sha256:d8058726dd9c9d0903362a26569ec988d3f6a2b8e3a2468f3074d6c6e7a2b9d1 AS builder
+FROM python:3.11-slim AS builder
 
 # Pinning explicit Astral UV tool digest
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -27,7 +27,7 @@ RUN uv sync --frozen --no-dev
 
 # STAGE 2: Secure Distroless Runtime
 # Pinning the exact Debian 12 Python 3 distroless digest
-FROM gcr.io/distroless/python3-debian12@sha256:918bbbfbb39fb04ca98cf982e04da57c8bfcd3a6c23cfb8bdfb1e32719280d0d
+FROM gcr.io/distroless/python3-debian12:latest
 
 # Enforce least privilege using explicit numeric UIDs (Required for Kubernetes Kyverno)
 COPY --from=builder --chown=65532:65532 /opt/venv /opt/venv
