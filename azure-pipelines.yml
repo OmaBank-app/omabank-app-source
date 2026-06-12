@@ -1,0 +1,82 @@
+trigger:
+  branches:
+    include:
+      - main
+      - feature/fintech-api
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # The Azure Container Registry provisioned in Phase 3
+  acrName: 'omabankacrdev923.azurecr.io'
+  # The Federated OIDC Service Connection from Phase 2
+  azureServiceConnection: 'omabank-devsecops-connection'
+  imageName: 'omabank-api'
+
+stages:
+- stage: Security_Audit
+  displayName: 'Shift-Left Security & Auditing'
+  jobs:
+  - job: Code_Scanning
+    displayName: 'GitLeaks & Trivy FS Scan'
+    steps:
+    - checkout: self
+
+    - script: |
+        echo "Installing GitLeaks..."
+        wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+        tar -xzf gitleaks_8.18.2_linux_x64.tar.gz
+        sudo mv gitleaks /usr/local/bin/
+
+        echo "Running PCI-DSS Secret Scan..."
+        gitleaks detect --source . --verbose
+      displayName: 'SEC | GitLeaks Secret Scan'
+
+    - script: |
+        echo "Installing Trivy..."
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.50.1
+
+        echo "Running High/Critical Vulnerability Scan..."
+        trivy fs . --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore
+      displayName: 'SEC | Trivy Filesystem Scan'
+
+- stage: Build_Push_SBOM
+  displayName: 'Build, SBOM, and Push to ACR'
+  dependsOn: Security_Audit
+  condition: succeeded()
+  jobs:
+  - job: Build_and_Push
+    steps:
+    # 1. Authenticate to Azure Container Registry securely via Workload Identity
+    - task: Docker@2
+      displayName: 'Login to Azure Container Registry'
+      inputs:
+        command: login
+        containerRegistry: $(azureServiceConnection)
+
+    # 2. Build the Multi-Stage Distroless Image
+    - task: Docker@2
+      displayName: 'Build and Push Distroless Image'
+      inputs:
+        command: buildAndPush
+        repository: $(imageName)
+        dockerfile: 'Dockerfile'
+        containerRegistry: $(azureServiceConnection)
+        tags: |
+          $(Build.BuildId)
+          latest
+
+    # 3. Generate the SBOM for SOC2 Compliance
+    - script: |
+        echo "Installing Syft..."
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+        echo "Generating Software Bill of Materials (SBOM)..."
+        syft $(acrName)/$(imageName):$(Build.BuildId) -o cyclonedx-json=sbom.json
+      displayName: 'COMPLIANCE | Generate Syft SBOM'
+
+    # 4. Save the SBOM as an artifact attached to the pipeline run
+    - publish: sbom.json
+      artifact: 'Software-Bill-Of-Materials'
+      displayName: 'COMPLIANCE | Publish SBOM Artifact'
