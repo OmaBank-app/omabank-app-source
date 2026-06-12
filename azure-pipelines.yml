@@ -35,11 +35,9 @@ stages:
 
     - script: |
         echo "Installing Trivy..."
-        # Download directly into the current directory (.) bypassing all OS permission blocks
-        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b . v0.50.1
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b . latest
 
         echo "Running High/Critical Vulnerability Scan..."
-        # Run the binary explicitly from the current directory using ./
         ./trivy fs . --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore
       displayName: 'SEC | Trivy Filesystem Scan'
 
