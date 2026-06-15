@@ -1,45 +1,39 @@
 # STAGE 1: Builder
-# Pinning explicit Python version and SHA-256 digest
 FROM python:3.11-slim AS builder
 
-# Pinning explicit Astral UV tool digest
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
 # Enable bytecode compilation for faster 2026 app startup
 ENV UV_COMPILE_BYTECODE=1
-ENV UV_LINK_MODE=copy
 
 # Copy ONLY lockfiles first to maximize Docker layer caching
 COPY pyproject.toml uv.lock ./
-RUN uv venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies ONLY (do not look for app source code yet)
-RUN uv sync --frozen --no-install-project --no-dev
+# Use uv pip to install directly into the system python environment, bypassing venv creation
+RUN uv pip install --system --no-cache -r pyproject.toml
 
 # Copy application source code
 COPY . /app
 
-# Now that source is copied, sync the actual OmaBank package
-RUN uv sync --frozen --no-dev
+# Install the actual app package
+RUN uv pip install --system --no-cache --no-deps .
 
 # STAGE 2: Secure Distroless Runtime
-# Pinning the exact Debian 12 Python 3 distroless digest
 FROM gcr.io/distroless/python3-debian12:latest
 
-# Enforce least privilege using explicit numeric UIDs (Required for Kubernetes Kyverno)
-COPY --from=builder --chown=65532:65532 /opt/venv /opt/venv
+# We no longer copy /opt/venv. We copy the system packages from python3.11
+COPY --from=builder --chown=65532:65532 /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder --chown=65532:65532 /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 COPY --from=builder --chown=65532:65532 /app /app
 
-# Apply NIST 800-53 compliant non-root execution via explicit UID
 USER 65532:65532
 
-ENV PATH="/opt/venv/bin:$PATH"
-ENV PYTHONPATH="/app"
+# Ensure Python knows exactly where to look for the packages
+ENV PYTHONPATH="/usr/local/lib/python3.11/site-packages:/app"
 
 EXPOSE 8000
 
-# Execute server safely inside the distroless sandbox
-CMD ["/opt/venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Execute the globally installed uvicorn binary
+CMD ["/usr/local/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
