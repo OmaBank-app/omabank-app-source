@@ -9,7 +9,7 @@ repos:
         args: ["--unsafe"]
       - id: check-json
       - id: check-added-large-files
-        args: ['--maxkb=500'] # Prevents accidentally committing huge DB dumps or logs
+        args: ['--maxkb=5000', '--enforce-all']  # Allow up to 5MB for images, block huge DB dumps/logs
       - id: check-merge-conflict
       - id: detect-private-key  # Fails if it spots a raw RSA/EC private key
       - id: no-commit-to-branch

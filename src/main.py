@@ -2,6 +2,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # Observability Integrations
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -50,7 +52,22 @@ app.include_router(ledger_router, prefix=settings.API_V1_STR)
 # Attach OpenTelemetry to trace every HTTP request
 FastAPIInstrumentor.instrument_app(app)
 
+# Mount static files for serving HTML, CSS, images
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/health", tags=["System"])
 async def health_check():
     return {"status": "healthy", "environment": settings.ENVIRONMENT}
+
+
+@app.get("/", response_class=FileResponse, tags=["Pages"])
+async def welcome_page():
+    """Serve the welcome landing page with custom background."""
+    return "static/index.html"
+
+
+@app.get("/about", response_class=FileResponse, tags=["Pages"])
+async def about_page():
+    """Serve the about page with custom background."""
+    return "static/about.html"
